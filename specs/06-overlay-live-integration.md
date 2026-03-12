@@ -239,6 +239,8 @@ interface GameBridgeError {
 
 1. 玩家进入范围 -> 浮层打开 -> 拉取 live quote
 2. 使用 dapp-kit 赞助跳跃 -> 返回 digest
+2.1 API 将 digest 先登记为 `pending_chain_confirmation`
+2.2 Indexer 通过官方 transaction block/object changes 确认 JumpPermit 创建
 3. 玩家触发 distress -> ops 面板出现 beacon
 4. 审计员更新 incident -> overlay 收到 `INCIDENT_READY`
 

@@ -283,21 +283,23 @@ public struct PolicySnapshot has store, copy, drop {
 ### 5.5.3 验证接口
 
 ```move
-use world::location_proof;
+use world::access::ServerAddressRegistry;
+use world::gate;
+use world::location;
 
 public fun verify_proximity(
-    proof: &LocationProof,
-    character: &Character,
-    target_assembly: &Gate,
-    admin_acl: &AdminACL,
+    target_gate: &Gate,
+    server_registry: &ServerAddressRegistry,
+    location_proof: vector<u8>,
     clock: &Clock,
+    ctx: &mut TxContext,
 ) {
-    location_proof::verify(
-        proof,
-        character,
-        target_assembly,
-        admin_acl,
+    location::verify_proximity_proof_from_bytes(
+        server_registry,
+        gate::location(target_gate),
+        location_proof,
         clock,
+        ctx,
     );
 }
 ```
@@ -306,7 +308,8 @@ public fun verify_proximity(
 
 - `/sponsor/route` 请求体包含 `locationProof` 字段
 - `/distress` 请求体包含 `locationProof` 字段
-- 后端验证签名后再组装上链交易
+- Stillness 发布包在 world bridge 中调用官方 `world::location::verify_proximity_proof_from_bytes`
+- 核心 `aegis_mesh` 包仅保存 `location_proof_hash`，以便保留本地无外部依赖测试能力
 
 ## 6. 事件标准
 
@@ -344,3 +347,4 @@ public fun verify_proximity(
 - 任一敏感路径都可证明“先过官方权限，再过应用层治理权限”。
 - JumpPermit 全部来自官方接口，扩展字段不写入官方对象。
 - RoutePass 与官方 JumpPermit 的关联可通过 digest 与 timestamp 回溯。
+- RoutePass 的最终确认以官方交易块成功且创建 `::gate::JumpPermit` 对象为准。

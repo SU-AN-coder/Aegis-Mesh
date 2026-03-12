@@ -48,7 +48,7 @@ Frontier is a programmable world where infrastructure is gameplay. Aegis Mesh fo
 ## Demo Loops
 
 1. Route sponsorship
-- `PLAYER_ENTERED_RANGE -> /route/quote -> /sponsor/route -> ROUTE_PASS_SUCCESS`
+- `PLAYER_ENTERED_RANGE -> /route/quote -> /sponsor/route -> digest submit -> indexer confirmation -> ROUTE_PASS_SUCCESS`
 
 2. Emergency response
 - `DISTRESS_SHORTCUT -> /distress -> incident attachment -> intel broadcast`
@@ -90,6 +90,18 @@ cd contracts/aegis_mesh
 sui move test
 ```
 
+## Stillness World Bridge
+
+For official Stillness deployment, use `contracts/world-integration-template`.
+
+It now contains:
+
+1. `issue_jump_permit_with_location_proof()`
+- Verifies `world::location::verify_proximity_proof_from_bytes()` before calling official `world::gate::issue_jump_permit()`.
+
+2. `raise_distress_with_location_proof()`
+- Verifies the same official proximity proof and stores the proof hash in Aegis Mesh.
+
 ## Architecture Docs
 
 1. `docs/architecture.md`
@@ -107,6 +119,9 @@ sui move test
 5. `docs/PERSONAL_ACTION_RUNBOOK_CN.md`
 - The checklist of actions that must be completed by you personally for final submission.
 
+6. `docs/EFCTL_STRESS_RUNBOOK_CN.md`
+- Local sandbox and `efctl` stress-test runbook for RoutePass and Distress event floods.
+
 ## New Specs Directory
 
 Detailed project specs are now provided in `specs/`:
@@ -123,9 +138,9 @@ Detailed project specs are now provided in `specs/`:
 ## Competition Upgrade Priorities
 
 1. Replace mock-first reads with chain + indexer backed projections.
-2. Implement sponsor-service hardening: idempotency, auth, rate limiting.
-3. Produce live integration evidence package: logs, tx hashes, end-to-end video.
-4. Add treaty and insurance extension modules to increase strategic depth.
+2. Confirm RoutePass lifecycle via official transaction/object change checks, not optimistic client completion.
+3. Keep sponsor-service hardening: idempotency, auth, rate limiting.
+4. Produce live integration evidence package: logs, tx hashes, end-to-end video.
 
 ## Live Integration Evidence Checklist
 
@@ -133,6 +148,17 @@ Detailed project specs are now provided in `specs/`:
 2. At least 3 on-chain transaction hashes for critical flows.
 3. 5-minute end-to-end demo script and recording.
 4. Screenshots from in-game overlay and ops console under the same scenario.
+5. RoutePass confirmation evidence showing `pending_chain_confirmation -> confirmed`.
+
+## Stillness Env Additions
+
+Add these when wiring the live bridge:
+
+```bash
+AEGIS_WORLD_BRIDGE_PACKAGE_ID=<published_bridge_package>
+WORLD_SERVER_REGISTRY_ID=<shared_server_registry_object>
+WORLD_CLOCK_OBJECT_ID=0x6
+```
 
 ## Contribution Notes
 

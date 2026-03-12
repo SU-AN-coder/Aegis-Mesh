@@ -7,6 +7,7 @@ import {
   fetchNodes,
   fetchRouteQuote,
 } from "./api";
+import { OpsWalletSection } from "./ops-wallet-section";
 import { PolicyEditor } from "./policy-editor";
 
 export async function OpsConsole() {
@@ -107,6 +108,8 @@ export async function OpsConsole() {
         <PolicyEditor policyId={nodes[0]?.policyId ?? "policy-border-west"} />
       </section>
 
+      <OpsWalletSection />
+
       <section className="grid two mt-18">
         <div className="panel">
           <h3>Distress queue</h3>
@@ -180,6 +183,7 @@ export async function OpsConsole() {
               totalEvents {indexer.indexer.totalEvents} lastPoll {indexer.indexer.lastPollAt ?? "n/a"}
             </p>
             <p className="muted code">lastCursor {indexer.indexer.lastCursor?.txDigest ?? "n/a"}</p>
+            <p className="muted code">pendingRoutePasses {indexer.indexer.pendingRoutePasses}</p>
           </div>
         </div>
       </section>

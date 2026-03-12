@@ -37,6 +37,7 @@ test("store dedupes distress beacons in the same system window", () => {
     systemId: "stillness-alpha-7",
     threatLevel: "high",
     bondAmount: 5,
+    locationProofHash: null,
     chainDigest: null,
   });
 
@@ -47,6 +48,7 @@ test("store dedupes distress beacons in the same system window", () => {
     systemId: "stillness-alpha-7",
     threatLevel: "critical",
     bondAmount: 7,
+    locationProofHash: null,
     chainDigest: null,
   });
 
@@ -66,6 +68,7 @@ test("store accepts single responder per beacon", () => {
     systemId: "stillness-zeta",
     threatLevel: "high",
     bondAmount: 4,
+    locationProofHash: null,
     chainDigest: null,
   });
 
@@ -217,6 +220,7 @@ test("route pass can be issued and consumed with permit digest", () => {
     routePassId: "route-pass-1",
     allianceId: "alliance-alpha",
     characterId: "pilot-1",
+    actorAddress: "0xpilot",
     sourceGateId: "gate-alpha-7",
     destinationGateId: "gate-beta-3",
     routeFingerprint: "a->b:safe",
@@ -228,14 +232,29 @@ test("route pass can be issued and consumed with permit digest", () => {
     expiresAt: new Date(Date.now() + 1_000).toISOString(),
   });
   assert.equal(pass.consumed, false);
+  assert.equal(pass.status, "pending_chain_confirmation");
   assert.equal(pass.sourceGateId, "gate-alpha-7");
   assert.equal(pass.destinationGateId, "gate-beta-3");
   assert.ok(pass.permitExpiresAtMs > 0);
 
+  const submitted = store.submitRoutePassPermitDigest("route-pass-1", "0xabc");
+  assert.ok(submitted);
+  assert.equal(submitted?.submittedPermitDigest, "0xabc");
+  assert.equal(submitted?.status, "pending_chain_confirmation");
+
   const consumed = store.markRoutePassConsumed("route-pass-1", "0xabc");
   assert.ok(consumed);
   assert.equal(consumed?.consumed, true);
+  assert.equal(consumed?.status, "confirmed");
   assert.equal(consumed?.linkedPermitDigest, "0xabc");
+});
+
+test("location proof hash is stable for distress audit trails", () => {
+  const store = new AegisStore();
+  assert.equal(
+    store.hashLocationProof("proof-abc"),
+    store.hashLocationProof("proof-abc"),
+  );
 });
 
 test("gate linking check follows configured links", () => {

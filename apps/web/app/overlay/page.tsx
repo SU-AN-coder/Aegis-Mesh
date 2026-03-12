@@ -1,5 +1,5 @@
-import { OverlayConsole } from "../../components/overlay-console";
+import { OverlayPageShell } from "../../components/overlay-page-shell";
 
 export default function OverlayPage() {
-  return <OverlayConsole />;
+  return <OverlayPageShell />;
 }

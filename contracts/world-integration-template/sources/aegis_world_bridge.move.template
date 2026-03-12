@@ -1,13 +1,17 @@
 module aegis_mesh_world::aegis_world_bridge;
 
-// NOTE:
-// This is a template and may require small signature adjustments to match the
-// exact world-contracts commit used by the hackathon environment.
-
+use sui::clock::Clock;
+use sui::coin::Coin;
+use sui::hash;
+use sui::object::{Self, ID};
+use sui::sui::SUI;
 use sui::tx_context::TxContext;
+use world::access::{OwnerCap, ServerAddressRegistry};
 use world::character::Character;
 use world::gate::{Self, Gate};
-use world::owner_cap::OwnerCap;
+use world::location;
+
+use aegis_mesh::aegis_mesh;
 
 public struct AegisMeshAuth has drop {}
 
@@ -18,13 +22,24 @@ public entry fun authorize_gate_extension(
     gate::authorize_extension<AegisMeshAuth>(gate, owner_cap);
 }
 
-public entry fun issue_jump_permit_with_witness(
+public entry fun issue_jump_permit_with_location_proof(
     source_gate: &Gate,
     destination_gate: &Gate,
     character: &Character,
+    server_registry: &ServerAddressRegistry,
+    location_proof: vector<u8>,
     expires_at_ms: u64,
+    clock: &Clock,
     ctx: &mut TxContext,
 ) {
+    location::verify_proximity_proof_from_bytes(
+        server_registry,
+        gate::location(source_gate),
+        location_proof,
+        clock,
+        ctx,
+    );
+
     gate::issue_jump_permit(
         source_gate,
         destination_gate,
@@ -32,5 +47,34 @@ public entry fun issue_jump_permit_with_witness(
         AegisMeshAuth {},
         expires_at_ms,
         ctx,
+    );
+}
+
+public entry fun raise_distress_with_location_proof(
+    alliance: &mut aegis_mesh::AllianceRegistry,
+    beacon_id: ID,
+    character: &Character,
+    source_gate: &Gate,
+    server_registry: &ServerAddressRegistry,
+    location_proof: vector<u8>,
+    bond: Coin<SUI>,
+    clock: &Clock,
+    ctx: &mut TxContext,
+) {
+    location::verify_proximity_proof_from_bytes(
+        server_registry,
+        gate::location(source_gate),
+        location_proof,
+        clock,
+        ctx,
+    );
+
+    aegis_mesh::raise_distress(
+        alliance,
+        beacon_id,
+        object::id(character),
+        hash::blake2b256(&location_proof),
+        bond,
+        clock,
     );
 }

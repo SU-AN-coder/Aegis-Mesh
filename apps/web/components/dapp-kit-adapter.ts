@@ -1,51 +1,41 @@
 "use client";
 
+import { useConnection, walletSupportsSponsoredTransaction } from "@evefrontier/dapp-kit";
+import { useWallets } from "@mysten/dapp-kit-react";
+
 export interface DappKitExecutionInput {
-  method: "signAndExecuteSponsoredTransaction";
-  moveCall: {
-    target: string;
-    arguments: Record<string, string | number | boolean>;
-  };
+  method: "signAndExecuteBridgeTransaction";
+  configured: boolean;
+  target: string | null;
+  packageId: string | null;
+  serverRegistryId: string | null;
+  clockObjectId: string;
+  sourceGateId: string;
+  destinationGateId: string;
+  characterObjectId: string;
+  locationProof: string | null;
+  expiresAtMs: number;
   routePassId: string;
   sourceSnapshotId: string;
 }
 
-export interface DappKitExecutionResult {
-  digest: string;
-}
-
-type DappKitLike = {
-  signAndExecuteSponsoredTransaction: (payload: {
-    transaction: unknown;
-  }) => Promise<{ digest: string }>;
-};
-
-export async function executeSponsoredWithDappKit(
-  input: DappKitExecutionInput,
-): Promise<DappKitExecutionResult> {
-  const dynamicImport = Function("m", "return import(m)") as (moduleName: string) => Promise<unknown>;
-  const dappKit = (await dynamicImport("@evefrontier/dapp-kit").catch(() => null)) as DappKitLike | null;
-  if (!dappKit) {
-    throw new Error("DAPP_KIT_UNAVAILABLE");
-  }
-
-  // Keep transaction payload portable for integration environments where
-  // the exact TransactionBuilder lives in wallet context.
-  const receipt = await dappKit.signAndExecuteSponsoredTransaction({
-    transaction: {
-      kind: "MoveCall",
-      target: input.moveCall.target,
-      arguments: input.moveCall.arguments,
-      routePassId: input.routePassId,
-      sourceSnapshotId: input.sourceSnapshotId,
-    },
-  });
-
-  if (!receipt?.digest) {
-    throw new Error("DAPP_KIT_NO_DIGEST");
-  }
+export function useDappKitBridge() {
+  const connection = useConnection();
+  const wallets = useWallets();
+  const hasSponsoredWallet = wallets.some((wallet) =>
+    walletSupportsSponsoredTransaction(
+      wallet as unknown as Parameters<typeof walletSupportsSponsoredTransaction>[0],
+    ),
+  );
 
   return {
-    digest: receipt.digest,
+    ...connection,
+    hasSponsoredWallet,
   };
+}
+
+export async function executeSponsoredWithDappKit(
+  _input: DappKitExecutionInput,
+): Promise<never> {
+  throw new Error("DAPP_KIT_BRIDGE_MOVE_CALL_NOT_AVAILABLE");
 }

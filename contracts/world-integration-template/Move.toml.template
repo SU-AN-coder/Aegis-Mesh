@@ -4,7 +4,8 @@ edition = "2024.beta"
 
 [dependencies]
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet" }
-world-contracts = { git = "https://github.com/evefrontier/world-contracts.git", rev = "REPLACE_WITH_STILLNESS_COMMIT" }
+world-contracts = { git = "https://github.com/evefrontier/world-contracts.git", rev = "8e2e97b50fd6bbf605284bcdaae54a33a5475e89" }
+aegis-mesh = { local = "../aegis_mesh" }
 
 [addresses]
 aegis_mesh_world = "0x0"

@@ -10,7 +10,7 @@
 
 ## 2. 最小闭环
 
-`PLAYER_ENTERED_RANGE -> /route/quote -> sponsored jump -> RoutePassIssued (app) -> JumpPermitConsumed (official)`
+`PLAYER_ENTERED_RANGE -> /route/quote -> sponsored jump -> RoutePassIssued (app) -> tx digest submitted -> JumpPermit confirmed (official tx/object changes)`
 
 ## 3. 路由数据来源（必须 live）
 
@@ -64,8 +64,9 @@
 ### 6.1 官方标准操作（优先）
 
 对官方游戏操作（如 Gate 跳跃）：
-- 优先使用 `@evefrontier/dapp-kit` 内置赞助能力（`signAndExecuteSponsoredTransaction()`）。
-- 不强制走自建 Sponsor 服务。
+- 前端必须接入官方 `@evefrontier/dapp-kit` Provider 与钱包连接。
+- 若目标动作为官方 SDK 已内置的 sponsored action，优先使用官方能力。
+- 若目标动作为 Aegis Mesh world bridge 自定义 Move 调用，则使用官方钱包连接 + 自建 sponsor / bridge 执行路径。
 
 ### 6.2 自定义业务操作
 
@@ -89,7 +90,7 @@
      │    跳跃请求      │                    │                  │
      │─────────────────>│                    │                  │
      │                 │ 2. 验证策略/白名单  │                  │
-     │                 │    构建交易数据     │                  │
+     │                 │    构建 bridge payload│                 │
      │                 │────────────────────>│                  │
      │                 │                    │ 3. sponsor签名   │
      │                 │                    │    用户签名      │
@@ -107,9 +108,9 @@
 
 关键节点说明：
 - 步骤 2：Aegis API 执行业务逻辑（策略检查、报价验证、RoutePass 创建）
-- 步骤 3：dapp-kit 处理 sponsor 密钥签名 + 用户钱包签名
+- 步骤 3：前端使用官方 dapp-kit 钱包会话拉起 EVE Vault，或由 sponsor 服务执行 bridge 交易
 - 步骤 4：Sui 链上验证所有签名并执行 gate::issue_jump_permit()
-- 步骤 6：API 记录 txDigest 用于审计追溯
+- 步骤 6：API 先记录 txDigest，再由 indexer 通过官方交易块 / object changes 确认 JumpPermit 创建
 ```
 
 ### 6.4 交易数据流转
@@ -127,10 +128,9 @@ interface SponsorRouteRequest {
 
 // 响应体
 interface SponsorRouteResponse {
-  tx_digest: string;        // 链上交易哈希
+  tx_digest?: string;       // 已拿到时立即返回
   permit_expires_at: number;
-  gas_used: number;
-  sponsor_fee: number;
+  route_pass_status: 'await_wallet_signature' | 'pending_chain_confirmation' | 'confirmed' | 'failed';
   audit_id: string;         // 可追溯的审计 ID
 }
 ```
@@ -151,4 +151,4 @@ interface SponsorRouteResponse {
 - 官方赞助路径成功率 >= 98%
 - 自建赞助路径成功率 >= 97%
 - quote 与链上实际结算偏差 <= 1%
-- RoutePass 与链上 JumpPermit 消费记录可全量关联
+- RoutePass 与链上 JumpPermit 的创建确认可全量关联，即使官方模块不发专门 PermitIssuedEvent。

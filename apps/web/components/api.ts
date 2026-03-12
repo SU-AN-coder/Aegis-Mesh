@@ -160,6 +160,7 @@ export async function fetchIndexerStatus(): Promise<{
     lastError: string | null;
     totalEvents: number;
     lastCursor: { txDigest: string; eventSeq: string } | null;
+    pendingRoutePasses: number;
   };
 }> {
   const res = await fetch(`${API_BASE}/indexer/status`, { cache: "no-store" });
@@ -172,6 +173,7 @@ export async function fetchIndexerStatus(): Promise<{
       lastError: string | null;
       totalEvents: number;
       lastCursor: { txDigest: string; eventSeq: string } | null;
+      pendingRoutePasses: number;
     };
   };
 }

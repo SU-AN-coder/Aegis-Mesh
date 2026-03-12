@@ -67,6 +67,9 @@ const minDistressBond = Number(process.env.MIN_DISTRESS_BOND ?? "0");
 const dappKitSponsorEnabled = process.env.DAPP_KIT_SPONSOR_ENABLED !== "false";
 const customSponsorEnabled = process.env.CUSTOM_SPONSOR_ENABLED !== "false";
 const dappKitSimulateExecution = process.env.DAPP_KIT_SIMULATE_EXECUTION === "true";
+const worldBridgePackageId = process.env.AEGIS_WORLD_BRIDGE_PACKAGE_ID ?? null;
+const worldServerRegistryId = process.env.WORLD_SERVER_REGISTRY_ID ?? null;
+const worldClockObjectId = process.env.WORLD_CLOCK_OBJECT_ID ?? "0x6";
 
 const sponsorCharacterLimitPerMinute = 10;
 const sponsorAllianceLimitPerMinute = 60;
@@ -552,6 +555,7 @@ app.post("/sponsor/route", async (req, res) => {
     routePassId,
     allianceId: parsed.data.allianceId,
     characterId: parsed.data.characterId,
+    actorAddress: context.actor,
     sourceGateId: parsed.data.sourceGateId,
     destinationGateId: parsed.data.destinationGateId,
     routeFingerprint,
@@ -562,32 +566,37 @@ app.post("/sponsor/route", async (req, res) => {
     permitExpiresAtMs,
     expiresAt: new Date(permitExpiresAtMs).toISOString(),
   });
+  const submittedRoutePass = sponsorDigest
+    ? store.submitRoutePassPermitDigest(routePassId, sponsorDigest) ?? routePass
+    : routePass;
   const dappKitPayload = sponsorProvider === "dapp-kit"
     ? {
-        method: "signAndExecuteSponsoredTransaction",
-        moveCall: {
-          target: "world::gate::issue_jump_permit",
-          arguments: {
-            sourceGateId: parsed.data.sourceGateId,
-            destinationGateId: parsed.data.destinationGateId,
-            characterId: parsed.data.characterId,
-            witnessType: "AegisMeshAuth",
-            expiresAtMs: permitExpiresAtMs,
-          },
-        },
+        method: "signAndExecuteBridgeTransaction",
+        configured: Boolean(worldBridgePackageId && worldServerRegistryId),
+        target: worldBridgePackageId
+          ? `${worldBridgePackageId}::aegis_world_bridge::issue_jump_permit_with_location_proof`
+          : null,
+        packageId: worldBridgePackageId,
+        serverRegistryId: worldServerRegistryId,
+        clockObjectId: worldClockObjectId,
+        sourceGateId: parsed.data.sourceGateId,
+        destinationGateId: parsed.data.destinationGateId,
+        characterObjectId: parsed.data.characterId,
+        locationProof: parsed.data.locationProof ?? null,
+        expiresAtMs: permitExpiresAtMs,
         routePassId,
         sourceSnapshotId: routeQuote.sourceSnapshotId,
       }
     : null;
   const body = {
     routePassId,
-    status: sponsorProvider === "dapp-kit" ? "await_wallet_signature" : "sponsored",
+    status: submittedRoutePass.status,
     sponsorProvider,
     sponsorDigest,
     requiresClientExecution: sponsorProvider === "dapp-kit" && sponsorDigest === null,
     dappKitPayload,
     quote: routeQuote,
-    routePass,
+    routePass: submittedRoutePass,
     remainingSponsorBudget: budget.remaining,
     requestId: context.requestId,
   };
@@ -649,17 +658,20 @@ app.post("/route/pass/consume", (req, res) => {
     return;
   }
 
-  const pass = store.markRoutePassConsumed(parsed.data.routePassId, parsed.data.permitDigest);
+  const pass = store.submitRoutePassPermitDigest(parsed.data.routePassId, parsed.data.permitDigest);
   if (!pass) {
     failWrite(res, context, "ROUTE_PASS_NOT_FOUND", "Route pass not found", 404);
     return;
   }
 
   finalizeWrite(res, context, {
-    statusCode: 200,
+    statusCode: 202,
     sourceSnapshotId: pass.sourceSnapshotId,
     txDigest: parsed.data.permitDigest,
-    body: pass,
+    body: {
+      ...pass,
+      message: "Permit digest submitted. Waiting for official chain confirmation before marking RoutePass consumed.",
+    },
   });
 });
 
@@ -731,6 +743,7 @@ app.post("/distress", async (req, res) => {
       systemId: parsed.data.systemId,
       threatLevel: parsed.data.threatLevel,
       bondAmount: parsed.data.bondAmount ?? minDistressBond,
+      locationProofHash: parsed.data.locationProof ? store.hashLocationProof(parsed.data.locationProof) : null,
       chainDigest: parsed.data.chainDigest ?? null,
     },
     30_000,

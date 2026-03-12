@@ -119,6 +119,7 @@ export const mockBeacons: DistressBeacon[] = [
     status: "open",
     openedAt: new Date().toISOString(),
     responders: [],
+    locationProofHash: null,
     sourceSnapshotId: DEFAULT_SOURCE_SNAPSHOT,
     dataSource: "simulated",
     chainDigest: null,

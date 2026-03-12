@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 
-import type { RouteQuote } from "@aegis-mesh/shared";
+import type { RoutePassRecord, RouteQuote } from "@aegis-mesh/shared";
 
 import { buildWriteHeaders } from "./api";
-import { executeSponsoredWithDappKit } from "./dapp-kit-adapter";
+import { useDappKitBridge } from "./dapp-kit-adapter";
+import { AegisEveFrontierProvider } from "./eve-frontier-provider";
 import { useGameBridge } from "./game-bridge";
+import { WalletConnectionCard } from "./wallet-connection-card";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 
@@ -22,8 +24,9 @@ type LiveStatus = {
   };
 };
 
-export function OverlayConsole() {
+function OverlayConsoleInner() {
   const bridge = useGameBridge();
+  const wallet = useDappKitBridge();
   const [state, setState] = useState<OverlayState>("idle");
   const [status, setStatus] = useState("Waiting for in-game trigger.");
   const [quote, setQuote] = useState<RouteQuote | null>(null);
@@ -159,15 +162,37 @@ export function OverlayConsole() {
     };
   }, []);
 
+  async function waitForRoutePassConfirmation(routePassId: string): Promise<RoutePassRecord | null> {
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const res = await fetch(`${API_BASE}/route/pass/${routePassId}`, { cache: "no-store" });
+      if (!res.ok) {
+        return null;
+      }
+      const pass = (await res.json()) as RoutePassRecord;
+      if (pass.consumed || pass.status === "failed") {
+        return pass;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
+    return null;
+  }
+
   async function requestRoutePass(provider: "custom" | "dapp-kit") {
     if (liveStatus.dataSource === "stale") {
       setStatus("Live data is stale. Sponsor action is disabled for evidence safety.");
       return;
     }
+    if (provider === "dapp-kit" && !wallet.isConnected) {
+      wallet.handleConnect();
+      setStatus("Wallet wake-up requested. Approve EVE Vault connection, then retry route sponsorship.");
+      return;
+    }
+
+    const actorAddress = wallet.walletAddress ?? characterId;
 
     const res = await fetch(`${API_BASE}/sponsor/route`, {
       method: "POST",
-      headers: buildWriteHeaders({ actorAddress: characterId }),
+      headers: buildWriteHeaders({ actorAddress }),
       body: JSON.stringify({
         from: activeSystem,
         to: "trade-hub-iv",
@@ -187,11 +212,17 @@ export function OverlayConsole() {
       status?: string;
       requiresClientExecution?: boolean;
       dappKitPayload?: {
-        method: "signAndExecuteSponsoredTransaction";
-        moveCall: {
-          target: string;
-          arguments: Record<string, string | number | boolean>;
-        };
+        method: "signAndExecuteBridgeTransaction";
+        configured: boolean;
+        target: string | null;
+        packageId: string | null;
+        serverRegistryId: string | null;
+        clockObjectId: string;
+        sourceGateId: string;
+        destinationGateId: string;
+        characterObjectId: string;
+        locationProof: string | null;
+        expiresAtMs: number;
         routePassId: string;
         sourceSnapshotId: string;
       } | null;
@@ -210,47 +241,20 @@ export function OverlayConsole() {
         setStatus("dapp-kit payload is missing.");
         return;
       }
-
-      try {
-        const receipt = await executeSponsoredWithDappKit(data.dappKitPayload);
-        await fetch(`${API_BASE}/route/pass/consume`, {
-          method: "POST",
-          headers: buildWriteHeaders({ actorAddress: characterId }),
-          body: JSON.stringify({
-            routePassId: data.routePassId,
-            allianceId: "alliance-alpha",
-            permitDigest: receipt.digest,
-          }),
-        });
-        setQuote(data.quote);
-        setState("success");
-        setStatus(`dapp-kit jump permit executed: ${receipt.digest}`);
-        bridge.emitToGame({
-          source: "aegis-mesh",
-          type: "ROUTE_PASS_SUCCESS",
-          payload: {
-            passId: data.routePassId,
-            txDigest: receipt.digest,
-            sourceGateId: activeGate,
-            destGateId: "gate-beta-3",
-            quotedCost: data.quote.estimatedCost,
-          },
-          timestamp: Date.now(),
-          correlationId: activeCorrelationId,
-        });
-        return;
-      } catch {
-        setQuote(data.quote);
-        setState("range");
-        setStatus(`Route pass prepared: ${data.routePassId}. Install/connect dapp-kit wallet context to execute.`);
-        return;
-      }
+      setQuote(data.quote);
+      setState("range");
+      setStatus(
+        data.dappKitPayload.configured
+          ? `Wallet connected and bridge payload prepared for ${data.dappKitPayload.target}. Execute this step in the live EVE Vault flow and then submit the resulting digest back to Aegis Mesh.`
+          : "Wallet is connected, but live bridge package IDs are not configured yet. Set Stillness package IDs before using the official wallet path.",
+      );
+      return;
     }
 
     const permitDigest = data.sponsorDigest ?? "0xdeadbeef";
     await fetch(`${API_BASE}/route/pass/consume`, {
       method: "POST",
-      headers: buildWriteHeaders({ actorAddress: characterId }),
+      headers: buildWriteHeaders({ actorAddress }),
       body: JSON.stringify({
         routePassId: data.routePassId,
         allianceId: "alliance-alpha",
@@ -260,20 +264,29 @@ export function OverlayConsole() {
 
     setQuote(data.quote);
     setState("success");
-    setStatus(`Route pass ready: ${data.routePassId} (${provider}).`);
-    bridge.emitToGame({
-      source: "aegis-mesh",
-      type: "ROUTE_PASS_SUCCESS",
-      payload: {
-        passId: data.routePassId,
-        txDigest: permitDigest,
-        sourceGateId: activeGate,
-        destGateId: "gate-beta-3",
-        quotedCost: data.quote.estimatedCost,
-      },
-      timestamp: Date.now(),
-      correlationId: activeCorrelationId,
-    });
+    const confirmedPass = await waitForRoutePassConfirmation(data.routePassId);
+    if (confirmedPass?.consumed) {
+      setStatus(`Route pass confirmed on-chain: ${confirmedPass.linkedPermitDigest ?? permitDigest}`);
+      bridge.emitToGame({
+        source: "aegis-mesh",
+        type: "ROUTE_PASS_SUCCESS",
+        payload: {
+          passId: data.routePassId,
+          txDigest: confirmedPass.linkedPermitDigest ?? permitDigest,
+          sourceGateId: activeGate,
+          destGateId: "gate-beta-3",
+          quotedCost: data.quote.estimatedCost,
+        },
+        timestamp: Date.now(),
+        correlationId: activeCorrelationId,
+      });
+      return;
+    }
+    if (confirmedPass?.status === "failed") {
+      setStatus(`Route pass submitted, but chain confirmation failed: ${confirmedPass.confirmationError ?? "unknown error"}`);
+      return;
+    }
+    setStatus(`Permit digest submitted: ${permitDigest}. Waiting for indexer confirmation.`);
   }
 
   async function raiseDistress() {
@@ -284,7 +297,7 @@ export function OverlayConsole() {
 
     const res = await fetch(`${API_BASE}/distress`, {
       method: "POST",
-      headers: buildWriteHeaders({ actorAddress: characterId }),
+      headers: buildWriteHeaders({ actorAddress: wallet.walletAddress ?? characterId }),
       body: JSON.stringify({
         allianceId: "alliance-alpha",
         characterId,
@@ -360,6 +373,8 @@ export function OverlayConsole() {
           </div>
         ) : null}
 
+        <WalletConnectionCard />
+
         <div className="overlay-actions">
           <button className="button" onClick={() => void requestRoutePass("dapp-kit")} disabled={state === "idle"}>
             View risk and buy route pass
@@ -401,5 +416,13 @@ export function OverlayConsole() {
         </div>
       </section>
     </main>
+  );
+}
+
+export function OverlayConsole() {
+  return (
+    <AegisEveFrontierProvider>
+      <OverlayConsoleInner />
+    </AegisEveFrontierProvider>
   );
 }

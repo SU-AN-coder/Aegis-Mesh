@@ -2,6 +2,7 @@ node_modules/
 .next/
 dist/
 coverage/
+.codex-runtime/
 .env
 .env.local
 *.tsbuildinfo

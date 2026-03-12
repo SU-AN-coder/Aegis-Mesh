@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import {
   buildRouteQuote,
@@ -39,6 +39,7 @@ export interface DistressInput {
   systemId: string;
   threatLevel: DistressBeacon["threatLevel"];
   bondAmount: number;
+  locationProofHash: string | null;
   chainDigest: string | null;
 }
 
@@ -52,6 +53,7 @@ export interface RoutePassIssueInput {
   routePassId: string;
   allianceId: string;
   characterId: string;
+  actorAddress: string;
   sourceGateId: string;
   destinationGateId: string;
   routeFingerprint: string;
@@ -107,6 +109,10 @@ export interface RuntimeMetrics {
   sponsorSuccessDappKit: number;
   sponsorAttemptsCustom: number;
   sponsorSuccessCustom: number;
+  routePassAwaitingWallet: number;
+  routePassPendingConfirmation: number;
+  routePassConfirmed: number;
+  routePassFailed: number;
   distressRaised: number;
   distressDeduped: number;
   distressResponded: number;
@@ -190,6 +196,10 @@ export class AegisStore {
     sponsorSuccessDappKit: 0,
     sponsorAttemptsCustom: 0,
     sponsorSuccessCustom: 0,
+    routePassAwaitingWallet: 0,
+    routePassPendingConfirmation: 0,
+    routePassConfirmed: 0,
+    routePassFailed: 0,
     distressRaised: 0,
     distressDeduped: 0,
     distressResponded: 0,
@@ -448,6 +458,7 @@ export class AegisStore {
       routePassId: input.routePassId,
       allianceId: input.allianceId,
       characterId: input.characterId,
+      actorAddress: input.actorAddress,
       sourceGateId: input.sourceGateId,
       destinationGateId: input.destinationGateId,
       routeFingerprint: input.routeFingerprint,
@@ -458,10 +469,21 @@ export class AegisStore {
       permitExpiresAtMs: input.permitExpiresAtMs,
       issuedAt: new Date().toISOString(),
       expiresAt: input.expiresAt,
+      status: input.sponsorProvider === "dapp-kit" ? "await_wallet_signature" : "pending_chain_confirmation",
       consumed: false,
+      submittedPermitDigest: null,
+      submittedAt: null,
       linkedPermitDigest: null,
+      confirmedAt: null,
+      confirmationLastCheckedAt: null,
+      confirmationError: null,
     };
     this.routePasses.set(pass.routePassId, pass);
+    if (pass.status === "await_wallet_signature") {
+      this.metrics.routePassAwaitingWallet += 1;
+    } else {
+      this.metrics.routePassPendingConfirmation += 1;
+    }
     return pass;
   }
 
@@ -469,14 +491,89 @@ export class AegisStore {
     return this.routePasses.get(routePassId) ?? null;
   }
 
+  submitRoutePassPermitDigest(routePassId: string, permitDigest: string): RoutePassRecord | null {
+    const pass = this.routePasses.get(routePassId);
+    if (!pass) {
+      return null;
+    }
+    if (pass.status === "await_wallet_signature") {
+      this.metrics.routePassAwaitingWallet = Math.max(0, this.metrics.routePassAwaitingWallet - 1);
+      this.metrics.routePassPendingConfirmation += 1;
+    }
+    pass.status = "pending_chain_confirmation";
+    pass.submittedPermitDigest = permitDigest;
+    pass.submittedAt = new Date().toISOString();
+    pass.confirmationLastCheckedAt = pass.submittedAt;
+    pass.confirmationError = null;
+    return pass;
+  }
+
   markRoutePassConsumed(routePassId: string, permitDigest: string): RoutePassRecord | null {
     const pass = this.routePasses.get(routePassId);
     if (!pass) {
       return null;
     }
+    if (!pass.consumed) {
+      if (pass.status === "await_wallet_signature") {
+        this.metrics.routePassAwaitingWallet = Math.max(0, this.metrics.routePassAwaitingWallet - 1);
+      }
+      if (pass.status === "pending_chain_confirmation") {
+        this.metrics.routePassPendingConfirmation = Math.max(0, this.metrics.routePassPendingConfirmation - 1);
+      }
+      this.metrics.routePassConfirmed += 1;
+    }
+    pass.status = "confirmed";
     pass.consumed = true;
+    pass.submittedPermitDigest = pass.submittedPermitDigest ?? permitDigest;
     pass.linkedPermitDigest = permitDigest;
+    pass.confirmedAt = new Date().toISOString();
+    pass.confirmationLastCheckedAt = pass.confirmedAt;
+    pass.confirmationError = null;
     return pass;
+  }
+
+  failRoutePassConfirmation(routePassId: string, error: string): RoutePassRecord | null {
+    const pass = this.routePasses.get(routePassId);
+    if (!pass) {
+      return null;
+    }
+    if (pass.status === "await_wallet_signature") {
+      this.metrics.routePassAwaitingWallet = Math.max(0, this.metrics.routePassAwaitingWallet - 1);
+    }
+    if (pass.status === "pending_chain_confirmation") {
+      this.metrics.routePassPendingConfirmation = Math.max(0, this.metrics.routePassPendingConfirmation - 1);
+    }
+    if (pass.status !== "failed") {
+      this.metrics.routePassFailed += 1;
+    }
+    pass.status = "failed";
+    pass.confirmationError = error;
+    pass.confirmationLastCheckedAt = new Date().toISOString();
+    return pass;
+  }
+
+  touchRoutePassConfirmation(routePassId: string): RoutePassRecord | null {
+    const pass = this.routePasses.get(routePassId);
+    if (!pass) {
+      return null;
+    }
+    pass.confirmationLastCheckedAt = new Date().toISOString();
+    return pass;
+  }
+
+  listPendingRoutePasses(): RoutePassRecord[] {
+    return Array.from(this.routePasses.values()).filter(
+      (pass) => pass.status === "pending_chain_confirmation" && !!pass.submittedPermitDigest && !pass.consumed,
+    );
+  }
+
+  findRoutePassBySubmittedDigest(permitDigest: string): RoutePassRecord | null {
+    for (const pass of this.routePasses.values()) {
+      if (pass.submittedPermitDigest === permitDigest) {
+        return pass;
+      }
+    }
+    return null;
   }
 
   createOrUpdateDistress(
@@ -501,6 +598,7 @@ export class AegisStore {
       recent.threatLevel = input.threatLevel;
       recent.bondAmount = input.bondAmount;
       recent.openedAt = now;
+      recent.locationProofHash = input.locationProofHash;
       recent.sourceSnapshotId = snapshot.sourceSnapshotId;
       recent.chainDigest = input.chainDigest;
       recent.dataSource = snapshot.dataSource;
@@ -518,6 +616,7 @@ export class AegisStore {
       status: "open",
       openedAt: now,
       responders: [],
+      locationProofHash: input.locationProofHash,
       sourceSnapshotId: snapshot.sourceSnapshotId,
       chainDigest: input.chainDigest,
       dataSource: snapshot.dataSource,
@@ -801,6 +900,10 @@ export class AegisStore {
 
   newDigest(): string {
     return `0x${randomUUID().replaceAll("-", "")}`;
+  }
+
+  hashLocationProof(locationProof: string): string {
+    return createHash("sha256").update(locationProof).digest("hex");
   }
 
   recordRequest(isWrite = false): void {

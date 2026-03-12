@@ -12,6 +12,11 @@ export type IncidentStatus =
   | "payout_executed";
 export type DataSource = "official_live" | "simulated" | "stale";
 export type SponsorProvider = "dapp-kit" | "custom";
+export type RoutePassChainStatus =
+  | "await_wallet_signature"
+  | "pending_chain_confirmation"
+  | "confirmed"
+  | "failed";
 
 export interface PolicyProfile {
   mode: PolicyMode;
@@ -82,6 +87,7 @@ export interface DistressBeacon {
     bondAmount: number;
     acceptedAt: string;
   }>;
+  locationProofHash: string | null;
   sourceSnapshotId: string;
   dataSource: DataSource;
   chainDigest: string | null;
@@ -122,6 +128,7 @@ export interface RoutePassRecord {
   routePassId: string;
   allianceId: string;
   characterId: string;
+  actorAddress: string;
   sourceGateId: string;
   destinationGateId: string;
   routeFingerprint: string;
@@ -132,8 +139,14 @@ export interface RoutePassRecord {
   permitExpiresAtMs: number;
   issuedAt: string;
   expiresAt: string;
+  status: RoutePassChainStatus;
   consumed: boolean;
+  submittedPermitDigest: string | null;
+  submittedAt: string | null;
   linkedPermitDigest: string | null;
+  confirmedAt: string | null;
+  confirmationLastCheckedAt: string | null;
+  confirmationError: string | null;
 }
 
 export interface PolicyVersionSnapshot {
