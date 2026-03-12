@@ -1,0 +1,36 @@
+module aegis_mesh_world::aegis_world_bridge;
+
+// NOTE:
+// This is a template and may require small signature adjustments to match the
+// exact world-contracts commit used by the hackathon environment.
+
+use sui::tx_context::TxContext;
+use world::character::Character;
+use world::gate::{Self, Gate};
+use world::owner_cap::OwnerCap;
+
+public struct AegisMeshAuth has drop {}
+
+public entry fun authorize_gate_extension(
+    gate: &mut Gate,
+    owner_cap: &OwnerCap<Gate>,
+) {
+    gate::authorize_extension<AegisMeshAuth>(gate, owner_cap);
+}
+
+public entry fun issue_jump_permit_with_witness(
+    source_gate: &Gate,
+    destination_gate: &Gate,
+    character: &Character,
+    expires_at_ms: u64,
+    ctx: &mut TxContext,
+) {
+    gate::issue_jump_permit(
+        source_gate,
+        destination_gate,
+        character,
+        AegisMeshAuth {},
+        expires_at_ms,
+        ctx,
+    );
+}

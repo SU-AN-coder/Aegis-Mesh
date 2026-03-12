@@ -1,0 +1,6 @@
+[package]
+name = "aegis_mesh"
+edition = "2024.beta"
+
+[addresses]
+aegis_mesh = "0x0"

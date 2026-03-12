@@ -1,0 +1,28 @@
+{
+  "name": "aegis-mesh",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "dev:web": "npm run dev --workspace @aegis-mesh/web",
+    "dev:api": "npm run dev --workspace @aegis-mesh/api",
+    "lint": "npm run lint --workspaces",
+    "test": "npm run test --workspaces",
+    "test:contracts": "sui move test --path contracts/aegis_mesh",
+    "test:all": "npm run test && npm run test:contracts",
+    "typecheck": "npm run typecheck --workspaces",
+    "check:all": "npm run test:all && npm run typecheck && npm run lint && npm run build",
+    "evidence:stillness": "tsx scripts/generate-stillness-evidence.ts",
+    "evidence:verify-digests": "tsx scripts/verify-digests.ts",
+    "evidence:all": "npm run evidence:stillness && npm run evidence:verify-digests"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.1",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.3"
+  }
+}

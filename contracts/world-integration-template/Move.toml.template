@@ -1,0 +1,12 @@
+[package]
+name = "aegis_mesh_world"
+edition = "2024.beta"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet" }
+world-contracts = { git = "https://github.com/evefrontier/world-contracts.git", rev = "REPLACE_WITH_STILLNESS_COMMIT" }
+
+[addresses]
+aegis_mesh_world = "0x0"
+world = "0x0"
+aegis_mesh = "0x0"

@@ -1,0 +1,22 @@
+
+> aegis-mesh@0.1.0 dev:web
+> npm run dev --workspace @aegis-mesh/web
+
+
+> @aegis-mesh/web@0.1.0 dev
+> next dev
+
+   ▲ Next.js 15.5.12
+   - Local:        http://localhost:3000
+   - Network:      http://10.104.130.26:3000
+
+ ✓ Starting...
+ ✓ Ready in 3.8s
+ ○ Compiling / ...
+ ✓ Compiled / in 6s (603 modules)
+ GET / 307 in 6767ms
+ ○ Compiling /ops ...
+ ✓ Compiled /ops in 1720ms (605 modules)
+ GET /ops 200 in 2407ms
+ ✓ Compiled /overlay in 464ms (617 modules)
+ GET /overlay 200 in 820ms

@@ -1,0 +1,281 @@
+:root {
+  --bg: #07111b;
+  --panel: #102133;
+  --panel-strong: #122b44;
+  --text: #ecf6ff;
+  --muted: #91a8bd;
+  --line: rgba(122, 184, 255, 0.16);
+  --accent: #5fd0ff;
+  --accent-2: #9cf27c;
+  --danger: #ff9070;
+  --font-sans: "IBM Plex Sans", "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background:
+    radial-gradient(circle at top right, rgba(95, 208, 255, 0.12), transparent 28%),
+    radial-gradient(circle at left center, rgba(156, 242, 124, 0.08), transparent 24%),
+    linear-gradient(180deg, #061019, #0a1825 40%, #09131e);
+  color: var(--text);
+  font-family: var(--font-sans);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.app-shell {
+  min-height: 100vh;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 28px;
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(10px);
+}
+
+.brand {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.brand strong {
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.brand span,
+.topbar nav {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.topbar nav {
+  display: flex;
+  gap: 18px;
+}
+
+.page {
+  width: min(1200px, calc(100vw - 40px));
+  margin: 0 auto;
+  padding: 28px 0 48px;
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.panel {
+  background: linear-gradient(180deg, rgba(16, 33, 51, 0.92), rgba(10, 24, 37, 0.96));
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 18px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.24);
+}
+
+.panel h2,
+.panel h3,
+.panel h4,
+.panel p {
+  margin-top: 0;
+}
+
+.grid {
+  display: grid;
+  gap: 18px;
+}
+
+.grid.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.grid.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.stat {
+  display: grid;
+  gap: 6px;
+}
+
+.stat-value {
+  font-family: var(--font-mono);
+  font-size: 1.8rem;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.badge[data-tone="danger"] {
+  color: var(--danger);
+  border-color: rgba(255, 144, 112, 0.28);
+}
+
+.badge[data-tone="good"] {
+  color: var(--accent-2);
+  border-color: rgba(156, 242, 124, 0.28);
+}
+
+.list {
+  display: grid;
+  gap: 12px;
+}
+
+.list-item {
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(7, 17, 27, 0.5);
+}
+
+.list-item strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.split {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.mb-8 {
+  margin-bottom: 8px;
+}
+
+.mt-18 {
+  margin-top: 18px;
+}
+
+.panel-tight {
+  padding: 14px;
+}
+
+.mb-14 {
+  margin-bottom: 14px;
+}
+
+.mt-14 {
+  margin-top: 14px;
+}
+
+.code {
+  font-family: var(--font-mono);
+}
+
+.overlay-page {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.overlay-shell {
+  width: min(440px, 100%);
+  background: rgba(7, 17, 27, 0.92);
+  border: 1px solid rgba(95, 208, 255, 0.28);
+  border-radius: 24px;
+  padding: 16px;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
+}
+
+.overlay-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.button {
+  appearance: none;
+  border: 0;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #2d8cff, #1762be);
+  color: white;
+  padding: 12px 14px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.button.secondary {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--line);
+  color: var(--text);
+}
+
+.button.warn {
+  background: linear-gradient(180deg, #ff8763, #c95437);
+}
+
+.form-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  padding: 12px;
+}
+
+@media (max-width: 900px) {
+  .hero,
+  .grid.two,
+  .grid.three {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+}

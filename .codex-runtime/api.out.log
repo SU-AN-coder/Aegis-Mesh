@@ -1,0 +1,9 @@
+
+> aegis-mesh@0.1.0 dev:api
+> npm run dev --workspace @aegis-mesh/api
+
+
+> @aegis-mesh/api@0.1.0 dev
+> tsx watch src/server.ts
+
+Aegis Mesh API listening on http://localhost:4000
